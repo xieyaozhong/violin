@@ -1,0 +1,93 @@
+/* Curated 2026-09-07. Original Traditional Chinese learning notes. External works retain their own licenses. */
+const ViolinData = (() => {
+ const imslp = name => 'https://imslp.org/wiki/' + encodeURIComponent(name).replace(/%20/g,'_');
+ const commons = file => 'https://commons.wikimedia.org/wiki/File:' + encodeURIComponent(file).replace(/%20/g,'_');
+ const media = file => 'https://commons.wikimedia.org/wiki/Special:Redirect/file/' + encodeURIComponent(file);
+ const book = (id,title,author,level,kind,access,description,goals,url,extra={}) => ({id,title,author,level,kind,access,description,goals,url,...extra});
+ const books = [
+ book('shino1','新版篠崎小提琴教本 1','篠崎弘嗣',1,'系統教本','商業教材','從樂器構造、姿勢、空弦到第一把位與基礎調性，是篠崎系統的入門主線。','空弦、持弓、音符、第一把位','https://www.sheetmusic.com.tw/products/v6',{featured:true,series:'篠崎',isbn:'9789860797138'}),
+ book('shino2','新版篠崎小提琴教本 2','篠崎弘嗣',2,'系統教本','商業教材','延續第一冊的讀譜與雙手協調，透過循序練習建立音準和弓法。','第一把位、節奏、運弓','https://www.m-y.com.tw/m/2001-1861-140185-1.php?Lang=zh-tw',{series:'篠崎',isbn:'9789860797145'}),
+ book('shino3','新版篠崎小提琴教本 3','篠崎弘嗣',2,'系統教本','商業教材','作為進階技巧與曲目銜接，依實際版本及教師進度安排練習。','技巧整合、樂曲表現','https://www.m-y.com.tw/m/2001-1861-140185-1.php?Lang=zh-tw',{series:'篠崎',isbn:'9789860797152'}),
+ book('shino4','新版篠崎小提琴教本 4','篠崎弘嗣',3,'系統教本','商業教材','進階系統教本，適合與音階、練習曲及獨奏曲交叉使用。','把位整合、進階演奏','https://www.m-y.com.tw/m/2001-1861-140185-1.php?Lang=zh-tw',{series:'篠崎',isbn:'9789860797169'}),
+ book('shinoy','少年篠崎小提琴教本 1–6','篠崎弘嗣',1,'系統教本','商業教材','經典少年系列，常見第2、3冊及第4、5冊合本，並有第6冊及伴奏譜。注意與新版1–4冊並非相同編號系統。','循序練習、合奏、進階銜接','https://www.kingrosa.com.tw/product.php?cid=119&lang=tw&tb=1',{series:'篠崎'}),
+ book('suzuki','Suzuki Violin School','鈴木鎮一',1,'系統教本','商業教材','以聆聽、模仿、反覆與曲目累積培養演奏能力，搭配教師指導及合法取得的示範錄音。','音樂聽覺、曲目、演奏習慣','https://www.alfred.com/search/products/?query=Suzuki%20Violin%20School',{series:'鈴木'}),
+ book('wo45','60 Studies for the Violin, Op.45','Franz Wohlfahrt',1,'練習曲','歷史版樂譜','60首漸進式練習曲。第一冊以第一把位為主，第二冊開始延伸至第三把位。','讀譜、換弦、節奏、弓法',imslp('60 Studies for the Violin, Op.45 (Wohlfahrt, Franz)'),{featured:true,series:'Wohlfahrt'}),
+ book('kayser','36 Violin Studies, Op.20','Heinrich Ernst Kayser',2,'練習曲','歷史版樂譜','36首分三冊，從第一把位逐步進入第三至第五把位，是進入 Kreutzer 前常見的橋樑。','把位、節奏、弓法與耐力',imslp('36 Violin Studies, Op.20 (Kayser, Heinrich Ernst)')),
+ book('sevcik1','School of Violin Technique, Op.1','Otakar Ševčík',1,'技術訓練','歷史版樂譜','四冊涵蓋第一把位、第二至第七把位、換把及雙音，適合拆成短時間精準訓練。','左手獨立、換把、雙音',imslp('School of Violin Technique, Op.1 (Ševčík, Otakar)'),{featured:true,series:'Ševčík'}),
+ book('sevcik2','School of Bowing Technique, Op.2','Otakar Ševčík',2,'技術訓練','歷史版樂譜','系統化右手訓練，從基本弓段與節奏變化逐步拓展運弓控制。','弓速、弓段、發音、節奏',imslp('School of Bowing Technique, Op.2 (Ševčík, Otakar)')),
+ book('schradieck','School of Violin Technics','Henry Schradieck',2,'技術訓練','歷史版樂譜','經典左手靈活度練習，包含不同把位、雙音及弓法內容。','手指獨立、均勻度、協調',imslp('School of Violin Technics (Schradieck, Henry)')),
+ book('hrimaly','Scale-Studies for Violin','Jan Hřímalý',2,'音階','歷史版樂譜','傳統音階與琶音教材，適合建立調性、指型與換把的長期練習習慣。','大調小調、琶音、音準',imslp('Scale-Studies for Violin (Hřímalý, Jan)')),
+ book('kreutzer','42 Studies','Rodolphe Kreutzer',3,'練習曲','歷史版樂譜','中高階小提琴訓練核心，涵蓋多樣弓法、換把、音準、顫音準備及雙音。','綜合技巧、音色、精準度',imslp('42 Studies (Kreutzer, Rodolphe)'),{featured:true}),
+ book('mazas','Études, Op.36','Jacques Féréol Mazas',2,'練習曲','歷史版樂譜','兼具旋律性與技術性的練習曲，將機械訓練轉化為音樂句法。','歌唱性、換把、連弓',imslp('Etudes, Op.36 (Mazas, Jacques Féréol)')),
+ book('dont','24 Preparatory Exercises, Op.37','Jakob Dont',3,'練習曲','歷史版樂譜','進階練習曲，適合在穩定基礎後深化左手、弓法及演奏精度。','進階技巧、協調、速度',imslp('24 Preparatory Exercises, Op.37 (Dont, Jakob)')),
+ book('rode','24 Caprices','Pierre Rode',4,'練習曲','歷史版樂譜','高階隨想曲，結合技術、和聲、句法與音樂表現。','高把位、複合弓法、詮釋',imslp('24 Caprices for Violin (Rode, Pierre)')),
+ book('paganini','24 Caprices for Solo Violin, Op.1','Niccolò Paganini',5,'練習曲','歷史版樂譜','24首高難度隨想曲，涵蓋雙音、泛音、左手撥弦、跳弓及極端技巧。','炫技、音樂結構、舞台表現',imslp('24 Caprices for Solo Violin, Op.1 (Paganini, Niccolò)'),{featured:true}),
+ book('flesch','Scale System','Carl Flesch',4,'音階','商業教材','高階音階體系，整合調性、琶音、雙音及跨把位訓練。使用合法購買或授權版本。','完整調性、高階音準','https://www.carlfischer.com/catalogsearch/result/?q=Flesch%20Scale%20System'),
+ book('galamian','Contemporary Violin Technique','Ivan Galamian / Frederick Neumann',4,'技術訓練','商業教材','以系統性節奏與音階變化建立高階技巧，適合與專業教師規劃。','音階、節奏變化、進階技巧','https://www.samizdat.com/galamian.html'),
+ book('bach','6 Violin Sonatas and Partitas, BWV 1001–1006','J. S. Bach',4,'獨奏曲','歷史版樂譜','六首無伴奏作品，是理解複音、和聲、舞曲及小提琴歌唱性的核心曲目。','複音、和聲、巴洛克風格',imslp('6 Violin Sonatas and Partitas, BWV 1001-1006 (Bach, Johann Sebastian)'),{featured:true}),
+ book('vivaldi','Violin Concerto in A minor, RV 356','Antonio Vivaldi',2,'協奏曲','歷史版樂譜','《和諧的靈感》Op.3 No.6，常見的協奏曲入門選擇。','巴洛克節奏、序列、樂句',imslp('Violin Concerto in A minor, RV 356 (Vivaldi, Antonio)')),
+ book('bach1042','Violin Concerto in E major, BWV 1042','J. S. Bach',3,'協奏曲','歷史版樂譜','三個樂章展現巴洛克協奏曲的節奏動力、抒情與舞曲性格。','協奏曲句法、音色對比',imslp('Violin Concerto in E major, BWV 1042 (Bach, Johann Sebastian)')),
+ book('bruchs','Violin Concerto No.1, Op.26','Max Bruch',4,'協奏曲','歷史版樂譜','浪漫派重要協奏曲，適合在成熟換把、音色與弓法基礎後研究。','長線條、浪漫派表現',imslp('Violin Concerto No.1, Op.26 (Bruch, Max)')),
+ book('mendelssohn','Violin Concerto, Op.64','Felix Mendelssohn',4,'協奏曲','歷史版樂譜','從旋律、精準技巧到大型曲式的經典協奏曲。','流暢技巧、古典浪漫風格',imslp('Violin Concerto, Op.64 (Mendelssohn, Felix)')),
+ book('tchaikovsky','Violin Concerto, Op.35','Pyotr Ilyich Tchaikovsky',5,'協奏曲','歷史版樂譜','高階協奏曲代表，要求完整音色控制、耐力與大型樂句規劃。','高階協奏曲、音色、舞台',imslp('Violin Concerto, Op.35 (Tchaikovsky, Pyotr)')),
+ book('trinity','Violin syllabus & resources','Trinity College London',1,'考級參考','官方免費資源','查詢公開課綱、曲目與考級要求；不同年度及版本須以官方文件為準。','學習目標、曲目規劃','https://www.trinitycollege.com/qualifications/music/grade-exams/strings'),
+ book('omt','Open Music Theory','Chelsey Hamm 等',1,'樂理','開放教材','開放式大學樂理教材，涵蓋記譜、音階、音程、和聲、曲式與聽寫。原文為英文，本網站提供自編繁體中文學習路徑。','樂理、和聲、聽覺','https://viva.pressbooks.pub/openmusictheory/',{license:'CC BY-SA 4.0，個別素材另有註記'}),
+ book('musictheory','musictheory.net','Ricci Adams',1,'樂理','免費線上','互動式讀譜、調號、音程與聽音練習，適合搭配小提琴指板學習。','讀譜、音程、耳訓','https://www.musictheory.net/lessons'),
+ book('philharmonia','Philharmonia Orchestra Sound Samples','Philharmonia Orchestra',1,'音色資源','免費但限制再散布','由管弦樂團樂手錄製的樂器音色資料庫，可用於音樂創作；不可原樣轉售或重新發佈為樣本庫。','真實音色、採樣、配器','https://philharmonia.co.uk/resources/sound-samples/'),
+ book('unsw','Introduction to Violin Acoustics','UNSW / Joe Wolfe',3,'聲學','免費研究資源','從弦、琴橋、面板、琴體與弓弦接觸理解聲音如何產生，並延伸至研究論文與實驗音檔。','聲學、音色、樂器構造','https://www.phys.unsw.edu.au/jw/violintro.html')
+ ];
+ const record = (id,title,artist,kind,level,description,file,license,credit,duration,score,extra={}) => ({id,title,artist,kind,level,description,file,url:commons(file),src:media(file),license,credit,duration,score,...extra});
+ const recordings = [
+ record('open','真實小提琴空弦','Clngre','音色樣本',1,'聆聽空弦的起音、泛音與自然衰減，不是合成音。','Violin open string.ogg','CC BY-SA 3.0','Clngre~commonswiki',7.3,null),
+ record('a440','A4 · 440 Hz','SVGguru','音色樣本',1,'真實小提琴演奏的A4，可用來辨認標準參考音。','Violin-440Hz.ogg','CC BY-SA 4.0','SVGguru',4.2,null),
+ record('staccato','Staccato · 斷奏','Wikimedia Commons contributor','演奏技術',2,'聆聽清楚分離的音符 G–A–B–C–D–C–B–A–G。','Violin staccato.ogg','依來源頁面授權','Wikimedia Commons',4.2,null),
+ record('pizz','Pizzicato · 撥弦','Clngre','演奏技術',1,'以手指撥弦，和弓奏的持續供能形成鮮明對比。','Violin pizzicato.ogg','CC BY-SA 3.0','Clngre~commonswiki',3.7,null),
+ record('vibrato','Vibrato · 揉弦','Clngre','演奏技術',2,'弱揉弦的真實錄音，聆聽音高週期變化與音色效果。','Violin vibrato.ogg','CC BY-SA 3.0','Clngre~commonswiki',4.4,null),
+ record('arioso','Bach · Arioso','Carrie Rehkopf','經典錄音',2,'抒情線條與呼吸感的聆聽素材，練習辨認音色、句尾與連弓。','Violinist CARRIE REHKOPF-BACH ARIOSO.ogg','CC BY-SA 3.0','Carrie Rehkopf',155,null),
+ record('bach1','Bach · E大調協奏曲 I. Allegro','Advent Chamber Orchestra / Jacques Israelievitch','經典錄音',3,'聆聽節奏推進、主奏與樂團的對話。','Bach Emaj Violin Concerto - 1. Allegro.ogg','EFF Open Audio License / CC BY-SA 2.0','Advent Chamber Orchestra；Jacques Israelievitch；Al Goldstein collection',484,'bach1042'),
+ record('bach2','Bach · E大調協奏曲 II. Adagio','Advent Chamber Orchestra / Jacques Israelievitch','經典錄音',3,'以長音、呼吸與和聲張力觀察慢樂章的歌唱性。','Bach Emaj Violin Concerto - 2. Adagio sempre Piano.ogg','EFF Open Audio License / CC BY-SA 2.0','Advent Chamber Orchestra；Jacques Israelievitch；Al Goldstein collection',449,'bach1042'),
+ record('bach3','Bach · E大調協奏曲 III. Allegro','Advent Chamber Orchestra / Jacques Israelievitch','經典錄音',3,'觀察舞曲性格、動機與弓法的輕巧程度。','Bach Emaj Violin Concerto - 3. Allegro.ogg','EFF Open Audio License / CC BY-SA 2.0','Advent Chamber Orchestra；Jacques Israelievitch；Al Goldstein collection',185,'bach1042'),
+ record('wieniawski','Wieniawski · 第二協奏曲第三樂章','United States Marine Band','經典錄音',4,'小提琴協奏曲改編為獨奏與管樂團，展現炫技與節奏能量。','Violin Concerto No. 2 in D minor - III. Allegro con fuoco - United States Marine Band.mp3','美國聯邦政府作品，公有領域','United States Marine Band；arr. MSgt Donald Patterson',447,null),
+ record('paganini5','Paganini · Caprice No.5','David Hernando Vitores','經典錄音',5,'真實小提琴隨想曲演奏，聆聽高速音群與高階弓法。','Niccolò Paganini - Caprice No.5 - David Hernando Vitores.ogg','CC BY-SA 4.0','David Hernando Vitores',192,'paganini'),
+ record('paganini24','Paganini · Caprice No.24（中提琴改編）','Elias Goldstein / Christina Lalog','經典錄音',5,'Paganini–Primrose 中提琴與鋼琴改編，非小提琴原版，適合比較音域與音色。','Paganini Caprice-24.ogg','公有領域，作者自行釋出','Steinaco；Elias Goldstein；Christina Lalog',311,'paganini')
+ ];
+ const articles = [
+ {id:'posture',category:'入門',level:1,title:'持琴、持弓與身體平衡',read:'6 分鐘',summary:'建立自然站姿、頭肩平衡與靈活雙手。',sections:[['基本站姿','雙腳穩定站立，膝蓋保持彈性。小提琴由鎖骨與肩部支撐，頭部自然落下，不必用下顎強力夾緊。肩墊與腮托需依身形調整。'],['左手與右手','左手拇指保持彈性，手腕不刻意折彎。持弓時手指自然彎曲，拇指與中指形成平衡，小指協助控制弓的重量。'],['每日檢查','先不拉琴，確認呼吸、肩頸與手腕放鬆；再以空弦短弓檢查姿勢。若出現疼痛或麻木，停止並請老師或專業人員協助。']],links:[['篠崎入門教材','shino1']]},
+ {id:'strings',category:'入門',level:1,title:'四條空弦與第一把位',read:'7 分鐘',summary:'G3、D4、A4、E5 由低至高，每兩條相鄰空弦相距純五度。',sections:[['空弦','G3 約196 Hz、D4 約293.66 Hz、A4 440 Hz、E5 約659.26 Hz。A4=440 Hz 是常用參考標準，也可依合奏需求調整。'],['第一把位','以D弦為例，D–E–F♯–G–A 對應空弦、1、2、3、4指（常見D大調指型）。半音位置因調性而改變，手指距離不是固定不變。'],['練習','每天先拉四條空弦，再練每條弦的0–1–2–3–4指。慢速檢查音準，避免以按弦過度用力代替正確位置。']],links:[['真實A4錄音','a440']]},
+ {id:'bow',category:'技巧',level:1,title:'弓速、重量與接觸點',read:'8 分鐘',summary:'音色不是單純「越用力越大聲」，而是三個變數的平衡。',sections:[['三個主要變數','弓速決定每秒供給的能量，弓的有效重量影響弦的受力，接觸點是弓毛與弦接觸的位置。三者需要互相配合。'],['接觸點','靠近琴橋的位置通常需要較多有效重量與較慢的弓速；靠近指板則常搭配較輕的重量。這是練習方向，不是所有力度與弦都適用的絕對規則。'],['空弦實驗','在一條空弦上保持弓速不變，只改變接觸點；再保持接觸點不變，逐步改變弓速。錄下聲音，觀察起音、雜音與音色的變化。']],links:[['UNSW 弓弦聲學','unsw']]},
+ {id:'notation',category:'樂理',level:1,title:'五線譜、音名與節奏',read:'8 分鐘',summary:'小提琴使用高音譜號，從音符位置與時值建立讀譜能力。',sections:[['高音譜號','五條線由下至上為 E4、G4、B4、D5、F5；線間為F4、A4、C5、E5。中央C4位於下加一線。'],['節奏','四分音符是一拍的常見基準，二分音符為兩拍，全音符四拍，八分音符半拍；實際拍長由拍號及速度決定。'],['讀譜順序','先看譜號與調號，再看拍號、節奏、音高、指法和弓法。練習時可先拍節奏，再唱音名，最後加上小提琴。']],links:[['Open Music Theory','omt']]},
+ {id:'interval',category:'樂理',level:1,title:'全音、半音與音程',read:'8 分鐘',summary:'把音程理解成音高距離，而不是只背誦指型。',sections:[['半音與全音','十二平均律中，一個半音為相鄰音高的最小常用單位；兩個半音形成全音。E–F與B–C是自然音名間的半音。'],['音程名稱','音程同時包含度數和性質，例如C到E是大三度（4半音），C到E♭是小三度（3半音），C到G是純五度（7半音）。'],['聽覺練習','先唱主音，再比較三度、四度、五度與八度。將不同音程移至G、D、A、E弦練習，建立指板與聽覺的連結。']],links:[['開放教材：音程','https://viva.pressbooks.pub/openmusictheory/chapter/intervals/']]},
+ {id:'keys',category:'樂理',level:2,title:'五度圈、調號與大小調',read:'10 分鐘',summary:'理解升降記號的排列，並在指板上連結調性。',sections:[['大調公式','大調音階的全半音順序為 全–全–半–全–全–全–半。以C大調為例：C D E F G A B C。'],['升降記號','升記號順序為F C G D A E B；降記號順序為B E A D G C F。沿五度圈順時針多一個升號，逆時針多一個降號。'],['關係大小調','C大調與a小調共用調號，但主音不同。自然小調、和聲小調與旋律小調需分別理解；和聲小調升高第七級，古典旋律小調上行升高第六、七級，下行通常回到自然小調。']],links:[['Open Music Theory','omt']]},
+ {id:'positions',category:'技巧',level:2,title:'換把與把位地圖',read:'8 分鐘',summary:'以目標音與手臂移動建立把位，而不只依賴手指伸展。',sections:[['把位概念','把位描述左手在指板上的位置。第一把位最常用；換至第三把位時，左手整體沿指板移動，音高與指型需重新定位。'],['換把順序','先聽目標音，再以輕壓、緩慢移動練習導引指。拇指與手部一起協調，不要將手腕固定在原處。'],['訓練方法','以D弦E4到G4等短距離開始，先用同一手指滑行，再加入不同指法。記錄起點、終點和是否有多餘緊張。']],links:[['Ševčík Op.1','sevcik1']]},
+ {id:'intonation',category:'技巧',level:2,title:'音準、純律與平均律',read:'9 分鐘',summary:'校音器是參考工具，合奏音準還需要聽覺與和聲判斷。',sections:[['十二平均律','每個半音的頻率比例為2的十二次方根。此系統便於跨調演奏與固定音高樂器配合。'],['純律與和聲','弦樂器在某些和聲情境中會微調音程，使泛音關係更融合；例如純五度的頻率比3:2，與平均律五度略有不同。'],['練習順序','先以空弦共鳴與參考音建立中心，再用持續低音檢查音階。不要每個音都盯著校音器，應逐漸將視覺回饋轉為聽覺記憶。']],links:[['UNSW 聲學研究','unsw']]},
+ {id:'articulation',category:'技巧',level:2,title:'連弓、分弓、斷奏與跳弓',read:'8 分鐘',summary:'用弓法創造清楚、連續或有彈性的音樂語言。',sections:[['Détaché 與 Legato','分弓通常每個音換弓，連弓則在同一弓內連接多個音。保持弓速與手指協調，避免每次換弓都出現不必要的重音。'],['Staccato 與 Spiccato','斷奏強調音與音的分離；跳弓利用弓的彈性離開弦面。兩者不完全等同，應由慢速控制逐步建立。'],['練習','同一條音階使用全弓、半弓、兩音一弓、四音一弓及短斷奏變化，保持相同音準再比較音色。']],links:[['Ševčík 弓法教材','sevcik2'],['斷奏錄音','staccato']]},
+ {id:'vibrato',category:'技巧',level:3,title:'揉弦：速度、幅度與語境',read:'8 分鐘',summary:'揉弦是表情工具，不是每個音都必須使用的裝飾。',sections:[['基本原理','揉弦透過手指與手部的週期性運動，使音高在目標音附近產生變化。速度與幅度可獨立調整。'],['練習方法','從無弓的慢速運動開始，確保拇指、手腕及肩部不僵硬。再加入長音，逐步建立均勻度，避免用搖晃整支琴代替手部動作。'],['音樂運用','樂句高潮可採用較強的揉弦，安靜段落可縮小幅度或使用直音。不同時代、作品與演奏風格有不同選擇。']],links:[['真實揉弦樣本','vibrato']]},
+ {id:'double',category:'技巧',level:3,title:'雙音、和弦與泛音',read:'9 分鐘',summary:'從兩條弦的平衡開始，逐步進入巴赫與帕格尼尼的複合技巧。',sections:[['雙音','同時拉響兩條弦，先以空弦和單指雙音練習，調整弓的平面、有效重量與左手音準。'],['和弦','三音或四音和弦常依風格與音樂語境分解演奏，並非所有聲音都必須長時間同時響起。'],['泛音','自然泛音是在弦的節點輕觸產生；人工泛音由按弦音與另一手指輕觸形成，適合在穩定音準後逐步學習。']],links:[['Paganini 24首隨想曲','paganini']]},
+ {id:'acoustics',category:'音色',level:2,title:'小提琴為什麼有這種聲音？',read:'10 分鐘',summary:'弦、琴橋、琴身與空氣共同形成複雜而富含泛音的聲音。',sections:[['弦與弓','弓毛與弦之間的摩擦造成週期性的黏滑運動，持續向弦供給能量。弦本身的振動不會有效地直接推動大量空氣。'],['琴橋與琴體','琴橋將弦的振動傳至琴身，表板、背板與空氣腔體的共振共同決定聲音如何輻射。音柱、低音樑與琴體結構也影響耦合與反應。'],['泛音與音色','同一個基音可以包含不同強度的泛音。弓法、弦材、琴體共振、演奏環境與錄音方式都會改變聽到的音色。']],links:[['UNSW 小提琴聲學','https://www.phys.unsw.edu.au/jw/violintro.html']]},
+ {id:'timbre',category:'音色',level:2,title:'明亮、溫暖、顆粒感與投射力',read:'8 分鐘',summary:'用可觀察的聲音特徵描述音色，避免只依賴模糊形容詞。',sections:[['明亮與溫暖','明亮通常與較明顯的高頻能量有關，溫暖常與中低頻及較柔和的高頻感受相關，但並非單一頻率即可決定。'],['起音與質感','弓開始接觸時的瞬態會影響清晰度與顆粒感。接觸點、弓速與有效重量的組合會改變雜音、起音和穩定段。'],['投射與距離','近距離聽到的響亮不等於音樂廳中的投射力。琴體輻射、頻譜、方向性及空間聲學都會影響遠距離聆聽。']],links:[['Philharmonia 音色資料庫','philharmonia'],['UNSW 研究','unsw']]},
+ {id:'tone-lab',category:'音色',level:2,title:'音色比較實驗：從空弦到歌唱性',read:'7 分鐘',summary:'運用真實授權錄音與簡單變因控制，建立自己的音色詞彙。',sections:[['第一步：對比','先聽空弦、斷奏、撥弦及揉弦樣本。描述起音是否清楚、聲音是否持續，以及是否具有週期性的音高變化。'],['第二步：自己的琴','錄製相同音高、相同長度的三組聲音，只改變一項弓法變數。記下錄音位置、弓段與主觀感受。'],['第三步：音樂語境','聆聽Bach慢樂章與Paganini隨想曲，觀察不同技術如何服務樂句，而不是只追求某種固定音色。']],links:[['音色樣本','open'],['Bach 慢樂章','bach2']]},
+ {id:'care',category:'入門',level:1,title:'琴弦、松香、保養與調音',read:'7 分鐘',summary:'建立安全的日常保養流程，避免自行處理需要製琴師協助的結構問題。',sections:[['演奏前後','先檢查弓毛張力與弦的狀況。演奏後用乾淨柔軟的布擦除琴弦、琴面上的松香與汗水，並將弓毛放鬆。'],['調音','以A弦為參考，逐步調整其他空弦。轉動弦軸時應細緻並觀察張力；若弦軸卡住、琴橋明顯傾斜或音柱異常，應停止並尋求專業協助。'],['環境','避免高溫、日曬、急劇溫濕度變化與長時間置於車內。琴橋、音柱及裂縫問題不宜自行調整。']],links:[['篠崎入門教材','shino1']]},
+ {id:'practice',category:'學習方法',level:1,title:'有效練習：慢練、分段與回饋',read:'7 分鐘',summary:'用明確目標取代無意識重複，讓每次練習都能累積。',sections:[['設定目標','每次只選一個可觀察問題，例如音準、換弓、節奏或音色。把長句拆成2至4小節，找到最小可練習單位。'],['慢練與變奏','先用能控制的速度練習，再逐步提高。對快速音群可使用節奏變化與分組，但必須保留自然動作，避免僵硬。'],['回饋紀錄','使用錄音、節拍器與簡短文字記下問題和修正方式。練習後回顧，安排短暫休息並避免疼痛下持續練習。']],links:[['Wohlfahrt Op.45','wo45']]},
+ {id:'styles',category:'音樂史',level:3,title:'巴洛克、古典、浪漫到現代',read:'9 分鐘',summary:'以作品風格理解弓法、揉弦、句法與音色的不同選擇。',sections:[['巴洛克','重視舞曲節奏、修辭、和聲方向與裝飾。Bach、Vivaldi是重要研究對象；歷史演奏方式與現代演奏不必完全一致。'],['古典與浪漫','古典時期強調曲式與清晰結構，浪漫時期則常追求更寬廣的旋律、戲劇張力與個人表達。'],['現代與當代','作曲家可能使用特殊弓法、泛音、敲擊、微分音或電子處理。應依作品記譜與作曲家要求選擇演奏方法。']],links:[['Bach 無伴奏','bach'],['Philharmonia','philharmonia']]}
+ ];
+ const glossary = [
+ ['Arco','弓奏','以弓毛拉弦，通常表示由撥弦恢復弓奏。'],['Pizzicato','撥弦','以手指撥動琴弦。'],['Détaché','分弓','音符各自運弓，通常保持清楚而連貫的發音。'],['Legato','連奏','使音與音平滑連接，常以連弓或平順換弓達成。'],['Staccato','斷奏','音符間有清楚分離的奏法。'],['Spiccato','跳弓','利用弓的彈性使弓毛離弦的短音奏法。'],['Sautillé','自然跳弓','較快速、由弓自身彈性產生的跳動奏法。'],['Martelé','頓弓','具明確起音與停頓的運弓技術。'],['Sul ponticello','近琴橋演奏','弓靠近琴橋，常產生較明亮或富含高頻的質感。'],['Sul tasto','近指板演奏','弓靠近指板，常用於較柔和的音色。'],['Con sordino','加弱音器','將弱音器裝於琴橋，使振動傳遞與音色改變。'],['Vibrato','揉弦','週期性音高變化的表情技巧。'],['Trill','顫音','兩個相鄰音之間快速交替的裝飾音，不等同揉弦。'],['Tremolo','震音','快速反覆運弓或音符交替，依記譜語境而定。'],['Harmonics','泛音','以弦的振動節點產生高音與特殊音色。'],['Double stop','雙音','同時演奏兩條弦上的音。'],['Shifting','換把','左手沿指板移動至另一把位。'],['Intonation','音準','演奏音高相對於音樂目標的準確程度。'],['Frog','弓根','靠近演奏者握弓處的弓端。'],['Tip','弓尖','遠離演奏者握弓處的弓端。'],['Soundpost','音柱','琴體內支撐並耦合表板與背板振動的木柱。'],['Bass bar','低音樑','表板內側的縱向木條，影響支撐與振動。'],['Bridge','琴橋','支撐琴弦並傳遞振動至琴體的部件。'],['Rosin','松香','增加弓毛與弦之間適當摩擦的材料。'],['Col legno','以弓木演奏','以弓桿接觸弦，依記號使用擊弦或摩擦方式。'],['Portamento','滑音連接','兩音之間可聽見的連續音高移動。'],['Sul G','在G弦上','指定使用G弦演奏。'],['A4 = 440 Hz','標準參考音','常用的A4調音頻率，並非所有時代與樂團唯一標準。']
+ ];
+ const learningPath = [
+ {level:1,title:'01 · 建立基礎',subtitle:'從第一個聲音開始',weeks:'入門階段',tasks:['持琴與持弓','四條空弦與換弦','第一把位音名','四分、二分與八分音符','C、G、D大調'],books:['shino1','shinoy','suzuki','wo45'],articles:['posture','strings','notation','interval','care']},
+ {level:2,title:'02 · 形成演奏能力',subtitle:'音準、節奏與音樂線條',weeks:'初中階',tasks:['第一把位音階與琶音','分弓、連弓、斷奏','第三把位與簡單換把','調號與五度圈','巴洛克協奏曲入門'],books:['shino2','shino3','wo45','kayser','sevcik1','hrimaly','vivaldi'],articles:['bow','keys','positions','intonation','articulation']},
+ {level:3,title:'03 · 技術與表現',subtitle:'將練習曲轉成音樂',weeks:'中高階',tasks:['多把位音階','揉弦與音色控制','雙音與複合弓法','長樂句與和聲分析','Kreutzer與Bach的銜接'],books:['shino4','sevcik2','schradieck','kreutzer','mazas','bach1042'],articles:['vibrato','double','acoustics','timbre']},
+ {level:4,title:'04 · 高階詮釋',subtitle:'建立獨立的音樂語言',weeks:'高階',tasks:['完整調性與雙音音階','複音與無伴奏作品','高階協奏曲','歷史演奏風格','演奏錄音與自我評估'],books:['rode','flesch','galamian','bach','bruchs','mendelssohn'],articles:['styles','tone-lab','practice']},
+ {level:5,title:'05 · 演奏家研究',subtitle:'技術、結構與個人表現',weeks:'專業精進',tasks:['Paganini 24首隨想曲','高階泛音與左手撥弦','大型協奏曲與舞台耐力','作品研究與版本比較','建立個人音色與詮釋'],books:['paganini','tchaikovsky','bach','galamian'],articles:['double','styles','timbre']}
+ ];
+ const sources = [
+ {name:'IMSLP / Petrucci Music Library',url:'https://imslp.org/',type:'公有領域與自由授權樂譜',note:'每份樂譜依版本、編輯及所在地法律個別確認。'},
+ {name:'Wikimedia Commons',url:'https://commons.wikimedia.org/',type:'可查明授權的音訊',note:'本館錄音均連至個別檔案頁，保留作者、授權與原始下載來源。'},
+ {name:'Musopen',url:'https://musopen.org/',type:'錄音、樂譜與教材',note:'免費與可再利用不是完全相同的概念，使用前應查看單一錄音授權。'},
+ {name:'Open Music Theory',url:'https://viva.pressbooks.pub/openmusictheory/',type:'開放樂理教科書',note:'CC BY-SA 4.0，個別第三方素材可能例外。本站文字為自編內容。'},
+ {name:'UNSW Violin Acoustics',url:'https://www.phys.unsw.edu.au/jw/violintro.html',type:'小提琴聲學研究',note:'研究文章與實驗音檔供閱讀、聆聽，未取得再散布授權者不複製。'},
+ {name:'Philharmonia Orchestra',url:'https://philharmonia.co.uk/resources/sound-samples/',type:'專業樂器採樣',note:'可用於音樂創作，不可原樣重發佈為樣本或採樣樂器。'},
+ {name:'篠崎出版資訊',url:'https://www.sheetmusic.com.tw/products/v6',type:'商業教材',note:'篠崎弘嗣著，全音樂譜出版社。收錄書目與學習指引，不提供未授權掃描。'}
+ ];
+ return {books,recordings,articles,glossary,learningPath,sources,updated:'2026-09-07',imslp,commons,media};
+})();
