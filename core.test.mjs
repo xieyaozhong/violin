@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {normalize,foldPitch,arrange,quantize,preventOverlap,encodeMidi,decodeMidi,encodeMusicXML,wavBytes,demo} from './core.js';
+assert.equal(foldPitch(48),60);
+assert.deepEqual(normalize([{pitch:60,start:1,duration:-1},{pitch:69,start:0,duration:1}]).map(x=>x.pitch),[69]);
+let ns=demo(),m=decodeMidi(encodeMidi(ns,{bpm:120,title:'test'}));
+assert.equal(m.notes.length,ns.length);assert.ok(Math.abs(m.notes[0].start-ns[0].start)<.001);assert.ok(Math.abs(m.notes[2].duration-ns[2].duration)<.001);
+let overlapping=[{pitch:60,start:0,duration:2},{pitch:72,start:0,duration:1},{pitch:74,start:1,duration:1}];let melody=arrange(overlapping,{mode:'melody'});assert.ok(melody.length>=2);assert.ok(melody.every(n=>n.pitch>=55&&n.pitch<=100));
+assert.ok(preventOverlap(overlapping).every(n=>n.duration>0));
+let xml=encodeMusicXML(ns,{bpm:120,title:'Test & Study'});assert.ok(xml.includes('Test &amp; Study'));assert.ok(xml.includes('<score-partwise'));assert.ok(xml.includes('<measure number="2">'));
+let tied=encodeMusicXML([{pitch:60,start:0,duration:5}],{bpm:120});assert.ok(tied.includes('<tie type="start"/>'));assert.ok(tied.includes('<tie type="stop"/>'));
+let wav=wavBytes([new Float32Array(100)],44100);assert.equal(wav.byteLength,244);assert.equal(new TextDecoder().decode(wav.slice(0,4)),'RIFF');
+assert.equal(decodeMidi(encodeMidi([{pitch:60,start:0,duration:1}],{bpm:90})).notes.length,1);
+console.log('Core tests passed: MIDI roundtrip, arrangement, range, XML, ties, WAV.');
