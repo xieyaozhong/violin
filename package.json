@@ -1,0 +1,11 @@
+{
+  "name": "violin-atlas",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test core.test.mjs regression.test.mjs ui.test.mjs sampler.test.mjs",
+    "start": "node serve.mjs",
+    "build": "node build.mjs"
+  },
+  "devDependencies": { "happy-dom": "20.14.3" }
+}

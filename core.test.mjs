@@ -4,6 +4,7 @@ assert.equal(foldPitch(48),60);
 assert.deepEqual(normalize([{pitch:60,start:1,duration:-1},{pitch:69,start:0,duration:1}]).map(x=>x.pitch),[69]);
 let ns=demo(),m=decodeMidi(encodeMidi(ns,{bpm:120,title:'test'}));
 assert.equal(m.notes.length,ns.length);assert.ok(Math.abs(m.notes[0].start-ns[0].start)<.001);assert.ok(Math.abs(m.notes[2].duration-ns[2].duration)<.001);
+assert.ok(new TextDecoder().decode(encodeMidi([{pitch:60,start:0,duration:1}],{title:'弦之境'})).includes('弦之境'));
 let overlapping=[{pitch:60,start:0,duration:2},{pitch:72,start:0,duration:1},{pitch:74,start:1,duration:1}];let melody=arrange(overlapping,{mode:'melody'});assert.ok(melody.length>=2);assert.ok(melody.every(n=>n.pitch>=55&&n.pitch<=100));
 assert.ok(preventOverlap(overlapping).every(n=>n.duration>0));
 let xml=encodeMusicXML(ns,{bpm:120,title:'Test & Study'});assert.ok(xml.includes('Test &amp; Study'));assert.ok(xml.includes('<score-partwise'));assert.ok(xml.includes('<measure number="2">'));
