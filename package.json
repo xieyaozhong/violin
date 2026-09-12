@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test core.test.mjs regression.test.mjs ui.test.mjs sampler.test.mjs",
+    "test": "node --test core.test.mjs regression.test.mjs editing.test.mjs ui.test.mjs sampler.test.mjs",
     "start": "node serve.mjs",
     "build": "node build.mjs"
   },

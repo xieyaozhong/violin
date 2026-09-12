@@ -10,7 +10,7 @@ http.createServer(async(req,res)=>{
   const url=new URL(req.url,'http://localhost');
   const relative=decodeURIComponent(url.pathname).replace(/^\/+/, '')||'converter.html';
   const filename=path.resolve(root,relative);
-  const allowed=new Set(['converter.html','converter.js','converter.css','core.js','sampler.js','project.js','transcribe-worker.js','index.html','styles.css','app.js','data.js','results.html','favicon.svg']);
+  const allowed=new Set(['converter.html','converter.js','converter.css','core.js','sampler.js','project.js','editing.js','transcribe-worker.js','index.html','styles.css','app.js','data.js','results.html','favicon.svg']);
   if(!filename.startsWith(root+path.sep)||!allowed.has(relative))throw Error('Not found');
   const body=await readFile(filename);
   res.writeHead(200,{'content-type':types[path.extname(filename)]||'application/octet-stream','cache-control':'no-cache'});res.end(body);

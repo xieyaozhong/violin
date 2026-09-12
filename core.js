@@ -1,5 +1,5 @@
 /* Violin Atlas Converter — original code, MIT. No network or browser dependency. */
-export const VERSION='2.0.0';
+export const VERSION='2.1.0';
 export const NAMES=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 export const OPEN_STRINGS=[55,62,69,76];
 export const clamp=(v,a,b)=>Math.min(b,Math.max(a,v));

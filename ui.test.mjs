@@ -58,4 +58,55 @@ test('tabs use roving keyboard focus',()=>{
  assert.equal(tabs[1].getAttribute('aria-selected'),'true');assert.equal(tabs[1].tabIndex,0);assert.equal(tabs[0].tabIndex,-1);
  assert.ok($('#piano-view').hidden===false);
 });
+test('multi-selection, batch edits, pagination and undo work together',async()=>{
+ change('#transpose',0);change('#mode','all');await click('#demo-btn');await click('[data-tab="edit"]');
+ const pick=(index,checked=true)=>{const e=$('#note-table [data-select="'+index+'"]');e.checked=checked;e.dispatchEvent(new win.Event('change',{bubbles:true}))};
+ pick(0);pick(1);assert.match($('#selection-count').textContent,/已選 2 /);assert.equal($('#select-all').indeterminate,true);
+ change('#batch-transpose',12);await click('#apply-transpose');assert.equal($(noteInput('pitch')).value,'A5');
+ assert.equal($('#note-table tr[data-index="2"] input[data-field="pitch"]').value,'C5');
+ await click('#undo-btn');assert.equal($(noteInput('pitch')).value,'A4');assert.match($('#selection-count').textContent,/已選 0 /);
+ $('#select-all').checked=true;$('#select-all').dispatchEvent(new win.Event('change'));
+ await click('#duplicate-selection');assert.equal($('#edit-count').textContent,'48 個音符');assert.match($('#selection-count').textContent,/已選 24 /);
+ await click('#next-notes');assert.equal($('#page-notes').textContent,'2 / 2');
+ assert.equal(win.document.querySelectorAll('#note-table [data-select]:checked').length,8);
+ $('#select-all').checked=true;$('#select-all').dispatchEvent(new win.Event('change'));await click('#delete-selection');
+ assert.equal($('#edit-count').textContent,'0 個音符');assert.equal($('#play-btn').disabled,true);
+ await click('#undo-btn');assert.equal($('#edit-count').textContent,'48 個音符');assert.equal($('#play-btn').disabled,false);
+ await click('#clear-btn');
+});
+test('A–B export clips notes and project backup keeps the entire piece and practice setup',async()=>{
+ change('#mode','all');await click('#demo-btn');change('#region-start',.1);change('#region-end',1);
+ $('#region-enabled').checked=true;$('#region-enabled').dispatchEvent(new win.Event('change'));
+ $('#loop').checked=true;$('#metronome').checked=true;change('#count-in',2);change('#click-volume',20);
+ await click('#select-region');assert.match($('#selection-count').textContent,/已選 3 /);
+ change('#export-scope','region');await click('#export-csv');
+ const csv=await downloads.at(-1).text();assert.match(csv,/69,A4,0.000000,0.275000/); // Demo is quantized to sixteenths.
+ assert.equal(csv.trim().split('\r\n').length,4);
+ await click('#export-midi');const {decodeMidi}=await import('./core.js');const midi=decodeMidi(await downloads.at(-1).arrayBuffer());
+ assert.equal(midi.notes.length,3);assert.equal(midi.notes[0].start,0);
+ await click('#export-xml');assert.match(await downloads.at(-1).text(),/片段/);
+ await click('#export-project');const project=JSON.parse(await downloads.at(-1).text());
+ assert.equal(project.notes.length,24);assert.equal(project.practice.start,.1);assert.equal(project.practice.end,1);assert.equal(project.practice.countIn,2);assert.equal(project.practice.loop,true);
+ await settle();await click('#restore-draft');assert.equal($('#region-enabled').checked,true);assert.equal($('#metronome').checked,true);assert.equal($('#region-start').value,'0.1');assert.equal($('#count-in').value,'2');
+ // Bad range is rejected instead of silently exporting the full work.
+ change('#region-end',.01);change('#export-scope','region');const count=downloads.length;await click('#export-csv');assert.equal(downloads.length,count);assert.match($('#toast').textContent,/有效 A–B/);
+ await click('#region-reset');assert.equal($('#region-enabled').checked,false);
+ await click('#clear-btn');
+});
+test('stale sample loading cannot unlock or restart a newer playback request',async()=>{
+ const {ViolinSampler}=await import('./sampler.js'),proto=ViolinSampler.prototype;
+ const oldLoad=proto.load,oldContext=proto.context,pending=[];
+ const param=()=>({value:0,setValueAtTime(){},linearRampToValueAtTime(){}});
+ const node=()=>({gain:param(),frequency:param(),playbackRate:param(),threshold:param(),knee:param(),ratio:param(),attack:param(),release:param(),connect(){},disconnect(){},start(){},stop(){}});
+ const ctx={currentTime:0,sampleRate:44100,destination:{},createGain:node,createDynamicsCompressor:node,createBufferSource:node,createOscillator:node,createConvolver:node,createBuffer:(_c,len)=>({getChannelData:()=>new Float32Array(len)})};
+ proto.context=async function(){this.ctx=ctx;return ctx};proto.load=()=>new Promise(resolve=>pending.push(resolve));
+ try{
+  await click('#demo-btn');const first=click('#play-btn');assert.equal($('#play-btn').disabled,true);
+  await click('#stop-btn');assert.equal($('#play-btn').disabled,false);
+  const second=click('#play-btn');assert.equal($('#play-btn').disabled,true);
+  pending[0]([{pitch:69,buffer:{duration:1}}]);await first;assert.equal($('#play-btn').disabled,true);
+  pending[1]([{pitch:69,buffer:{duration:1}}]);await second;assert.equal($('#play-btn').disabled,false);assert.equal($('#play-btn').getAttribute('aria-label'),'暫停');
+  await click('#stop-btn');assert.equal($('#play-btn').getAttribute('aria-label'),'播放');
+ }finally{await click('#stop-btn');await click('#clear-btn');proto.load=oldLoad;proto.context=oldContext}
+});
 test.after(async()=>{await win.happyDOM.abort();win.close()});

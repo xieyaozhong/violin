@@ -43,3 +43,20 @@ body .workflow>div,body .workflow b{font-size:.875rem}.workflow{padding-top:14px
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 @media print{#piano-view,#edit-view,.save-state,#playhead,.score-error{display:none!important}}
+/* 2.1 — practice controls and selection tools extend the existing studio. */
+.practice-panel{min-width:0;border:1px solid var(--line);border-radius:5px;padding:16px;margin:20px 0 0;background:#f7f9fa}
+.practice-panel legend{font-size:1rem;font-weight:600;padding:0 8px}.inline-check{display:inline-flex;align-items:center;gap:8px;font-size:.875rem;min-height:40px}
+.inline-check input{width:18px;height:18px;flex:none}.practice-range,.batch-fields{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 12px;align-items:end}
+.practice-range label,.practice-options>label:not(.inline-check),.batch-fields label{display:grid;gap:5px;font-size:.875rem;color:#43545f}
+.practice-range input,.practice-options select,.batch-fields input,.batch-fields select,.export-scope select{min-width:0;width:100%;min-height:42px;padding:7px 9px;border:1px solid #c7d0d5;border-radius:3px;background:#fff;color:var(--ink);font-size:.875rem}
+.practice-actions,.selection-actions,.batch-actions{display:flex;gap:8px 14px;align-items:center;flex-wrap:wrap}.practice-actions{margin:6px 0 14px}
+.practice-options{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px;align-items:center}.practice-options>label:last-child{grid-column:1/-1}.practice-options input[type=range]{width:100%;height:24px}
+.practice-panel .fine-print{margin:12px 0 0}.batch-panel{margin:0 28px 16px;padding:14px;border:1px solid var(--line);border-radius:4px;background:#f7f9fa}
+.selection-actions{border-bottom:1px solid var(--line);padding-bottom:8px;margin-bottom:14px;font-size:.875rem}.batch-actions{margin-top:14px}.batch-panel .fine-print{margin-bottom:0}
+.danger-text{color:#983c2c!important}.note-table .select-cell input{width:20px;min-width:20px;height:20px;min-height:20px;padding:0}.note-table .select-cell{width:44px}
+.note-table tr.note-selected{background:#f4eddf}.note-table tr.note-selected input:not([type=checkbox]){border-color:#b39c79}
+.export-scope{display:flex;align-items:center;justify-content:space-between;gap:16px;font-size:.875rem;margin-top:14px}.export-scope select{max-width:75%}
+.batch-fields .button,.practice-range .button{white-space:normal;min-height:42px}.practice-panel .text-button,.batch-panel .text-button{font-size:.875rem}
+@media(max-width:1100px){.batch-panel{margin-left:21px;margin-right:21px}}
+@media(max-width:420px){.practice-panel{padding:12px}.practice-options{grid-template-columns:1fr}.batch-panel{margin-left:16px;margin-right:16px;padding:12px}.batch-fields{grid-template-columns:minmax(0,1fr) minmax(95px,.8fr);gap:10px 8px}.batch-fields label{font-size:.875rem}.export-scope{align-items:flex-start;flex-direction:column}.export-scope select{max-width:100%}}
+@media print{.practice-panel,.batch-panel{display:none!important}}

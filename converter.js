@@ -1,9 +1,11 @@
 import * as Core from './core.js';
 import {ViolinSampler} from './sampler.js';
 import {parseProject,PROJECT_FORMAT,History,snapshot} from './project.js';
+import {practiceSettings,clipNotes,selectionRange,editNotes,notesCSV} from './editing.js';
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const state={source:null,raw:[],notes:[],title:'Violin arrangement',bpm:120,midi:null,originalBuffer:null,originalUrl:null,busy:false,cancel:false,undo:[],page:0,selected:-1,tab:'score',model:null,modelLib:null,score:null,scoreLib:null,scoreToken:0,job:0,notation:null,loading:false,playPending:false};
 const history=new History();let worker=null,cancelAnalysis=null,draftTimer=0,analysisKey='',rollLayout=null;
+let selection=new Set(),playRequest=0;
 const DRAFT_KEY='violin-atlas-converter-draft-v1';
 const sampler=new ViolinSampler();let toastTimer=0,renderTimer=0,rollBoxes=[],resumeAfterSeek=false;
 const escapeHtml=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -27,6 +29,7 @@ function busy(value,canCancel=false){
  available();
 }
 function ensureEnhancements(){
+ $('.version').textContent='/ 2.1';
  $('#mode').closest('.form-row').insertAdjacentHTML('beforebegin','<div class="form-row"><label for="title">作品名稱</label><input id="title" type="text" maxlength="100" value="Violin arrangement" autocomplete="off"></div>');
  $('#convert-btn').insertAdjacentHTML('afterend','<button class="button secondary big arrange-button" id="arrange-btn" hidden>套用設定並重新編曲 ↻</button><p class="fine-print save-state" id="save-state" role="status">草稿只儲存於此瀏覽器；可下載專案備份。</p>');
  $('#source-info').insertAdjacentHTML('afterend','<div class="draft-notice" id="draft-notice" hidden><div><strong>找到上次的編曲草稿</strong><span id="draft-meta"></span></div><div class="draft-actions"><button class="text-button" id="restore-draft">載入草稿</button><button class="text-button" id="dismiss-draft">略過</button></div></div>');
@@ -36,6 +39,36 @@ function ensureEnhancements(){
  $('#file-input').accept+=',.json';
  $('.dropzone strong').textContent='選擇音樂、樂譜或專案檔';
  $('.playback-settings').insertAdjacentHTML('afterend','<label class="check-row"><input type="checkbox" id="loop">整首循環練習</label><div class="form-row compact"><label for="volume">音量</label><div class="range-box"><input id="volume" type="range" min="0" max="100" value="80"><output id="volume-value">80%</output></div></div>');
+ $('#loop').parentElement.lastChild.textContent='循環播放（啟用 A–B 時只循環區段）';
+ $('#sample-state').insertAdjacentHTML('beforebegin',`
+  <fieldset class="practice-panel"><legend>分段練習</legend>
+   <label class="inline-check"><input id="region-enabled" type="checkbox">使用 A–B 區段</label>
+   <div class="practice-range">
+    <label>A 起點（秒）<input id="region-start" type="number" min="0" step=".01" value="0"></label>
+    <button id="mark-a" class="button tiny secondary">目前位置設為 A</button>
+    <label>B 終點（秒）<input id="region-end" type="number" min=".05" step=".01" value="0"></label>
+    <button id="mark-b" class="button tiny secondary">目前位置設為 B</button>
+   </div>
+   <div class="practice-actions"><button id="region-reset" class="text-button">重設為整首</button><button id="region-selection" class="text-button" disabled>以已選音符設定 A–B</button></div>
+   <div class="practice-options"><label class="inline-check"><input id="metronome" type="checkbox">播放節拍器</label>
+    <label>播放前預備拍<select id="count-in"><option value="0">關閉</option><option value="1">1 小節</option><option value="2">2 小節</option></select></label>
+    <label>節拍音量<input id="click-volume" type="range" min="0" max="100" value="35" aria-label="節拍音量"></label>
+   </div><p id="practice-status" class="fine-print" role="status">節拍依已生成樂譜的速度與拍號；6/8 每小節六拍。</p>
+  </fieldset>`);
+ $('.edit-tools').insertAdjacentHTML('afterend',`
+  <div class="batch-panel" aria-label="批次修譜">
+   <div class="selection-actions"><label class="inline-check"><input id="select-all" type="checkbox">全曲全選</label><span id="selection-count" role="status">已選 0 個</span><button id="select-region" class="text-button">選取 A–B 內音符</button><button id="clear-selection" class="text-button">取消選取</button></div>
+   <div class="batch-fields">
+    <label>移調（半音）<input id="batch-transpose" type="number" min="-127" max="127" value="0" step="1"></label><button id="apply-transpose" class="button tiny secondary" data-batch="transpose">套用移調</button>
+    <label>移動（四分音符拍數）<input id="batch-shift" type="number" value="1" step=".25"></label><button id="apply-shift" class="button tiny secondary" data-batch="shift">移動音符</button>
+    <label>力度（1–127）<input id="batch-velocity" type="number" min="1" max="127" value="100" step="1"></label><button id="apply-velocity" class="button tiny secondary" data-batch="velocity">統一力度</button>
+    <label>量化單位<select id="batch-grid"><option value="1">四分音符</option><option value="2">八分音符</option><option value="4" selected>十六分音符</option><option value="8">三十二分音符</option></select></label><button id="apply-quantize" class="button tiny secondary" data-batch="quantize">量化已選音符</button>
+   </div><div class="batch-actions"><button id="duplicate-selection" class="button tiny secondary" data-batch="duplicate">複製並接在片段後</button><button id="delete-selection" class="button tiny secondary danger-text" data-batch="delete">刪除已選音符</button></div>
+   <p class="fine-print">跨頁選取；所有批次編輯都可復原。時間軸按住 Shift 點選可多選。</p>
+  </div>`);
+ $('.note-table thead tr').insertAdjacentHTML('afterbegin','<th scope="col">選取</th>');
+ $('.export-grid').insertAdjacentHTML('beforebegin',`<label class="export-scope">匯出範圍<select id="export-scope"><option value="all">整首作品</option><option value="region">A–B 區段（從 0 秒開始）</option></select></label><p class="fine-print">範圍套用至 WAV、MIDI、MusicXML、CSV；不含節拍器與預備拍。PDF 與專案備份保留整首。</p>`);
+ $('.export-grid').insertAdjacentHTML('beforeend','<button class="button secondary" id="export-csv" disabled><span>↓</span><strong>下載音符清單</strong><small>CSV · 可用試算表開啟</small></button>');
  $('#analyze-limit').closest('.form-row').insertAdjacentHTML('beforebegin','<div class="form-row"><label for="analyze-start">起始位置（秒）</label><input id="analyze-start" type="number" min="0" step="1" value="0"></div>');
  $('#threshold').closest('.form-row').querySelector('label').textContent='音符門檻';
  $('.advanced .fine-print').insertAdjacentHTML('afterbegin','門檻越低，辨識出的音符越多；低門檻也可能增加雜訊。 ');
@@ -48,7 +81,7 @@ function ensureEnhancements(){
 }
 const controlIds=['mode','bpm','key','meter','transpose','range','quantize','strength','threshold','min-note','analyze-limit','analyze-start'];
 function draftSettings(){const values=Object.fromEntries(controlIds.map(id=>[id,$('#'+id).value]));values.octaves=$('#octaves').checked;return values}
-function projectData(){return {format:PROJECT_FORMAT,version:2,savedAt:Date.now(),title:state.title,sourceName:state.source?.file?.name||'專案',raw:state.raw,notes:state.notes,bpm:state.bpm,notation:state.notation,controls:draftSettings(),audio:{...audioSettings(),onStatus:undefined}}}
+function projectData(){return {format:PROJECT_FORMAT,version:2,savedAt:Date.now(),title:state.title,sourceName:state.source?.file?.name||'專案',raw:state.raw,notes:state.notes,bpm:state.bpm,notation:state.notation,controls:draftSettings(),practice:readPractice(),audio:{...audioSettings(),onStatus:undefined}}}
 function saveDraft(){
  clearTimeout(draftTimer);
  draftTimer=setTimeout(flushDraft,400);
@@ -79,6 +112,7 @@ function restoreProject(d){
  applyDraftSettings(d.controls);
  for(const id of ['instrument','speed','vibrato','reverb','volume'])setIfOption(id,d.audio[id]);
  state.notation=d.notation||{...getSettings(),bpm:d.bpm,grid:0};
+ applyPractice(d.practice);
  setSourceInfo(state.source.file,'編曲專案',d.notes.length+' 個音符');syncRangeLabels();
  renderEverything();saveDraft();status('專案已載入，可繼續修譜與匯出。原音訊需另行匯入才能重新辨識。','success');
 }
@@ -88,7 +122,7 @@ function available(){
  for(const id of ['file-input','demo-btn','new-btn','clear-btn','title','track-select',...controlIds,'octaves'])$('#'+id).disabled=locked;
  $('#convert-btn').disabled=locked||!state.source||(!state.raw.length&&!state.originalBuffer);
  $('#arrange-btn').hidden=!state.raw.length;$('#arrange-btn').disabled=locked||!state.raw.length;
- for(const id of ['export-audio','export-midi','export-xml','export-pdf','seek'])$('#'+id).disabled=locked||!yes;
+ for(const id of ['export-audio','export-midi','export-xml','export-pdf','export-csv','seek','export-scope'])$('#'+id).disabled=locked||!yes;
  $('#export-project').disabled=locked||!state.source;
  $('#play-btn').disabled=locked||!yes||state.playPending;
  $('#stop-btn').disabled=!yes&&!state.playPending;
@@ -100,16 +134,66 @@ function available(){
  $('#play-title').textContent=yes?state.title:'等待音樂';$('#art-title').textContent=state.title;$('#sheet-title').textContent=state.title;
  sampler.duration=duration();sampler.offset=Math.min(sampler.offset,sampler.duration);
  $('#clock').textContent=fmt(sampler.position())+' / '+fmt(duration());
+ updateSelectionUI();
+ $$('.practice-panel input,.practice-panel select,.practice-panel button').forEach(e=>e.disabled=locked||!yes);
+ $('#region-selection').disabled=locked||!selection.size;
 }
 function saveBlob(data,filename,type){const blob=data instanceof Blob?data:new Blob([data],{type});const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),60000)}
 function getSettings(){const [low,high]=$('#range').value.split(',').map(Number);const [beats,beatType]=$('#meter').value.split('/').map(Number);return {mode:$('#mode').value,low,high,octaves:$('#octaves').checked,transpose:Number($('#transpose').value),bpm:Core.clamp(Number($('#bpm').value)||120,20,300),key:$('#key').value,beats,beatType,grid:Number($('#quantize').value),strength:Number($('#strength').value)/100,maxVoices:2}}
 function audioSettings(){return {volume:Number($('#volume').value),instrument:$('#instrument').value,speed:Number($('#speed').value),vibrato:Number($('#vibrato').value),reverb:Number($('#reverb').value),onStatus:s=>$('#sample-state').textContent=s}}
+function readPractice(strict=false){
+ const p={region:$('#region-enabled').checked,start:Number($('#region-start').value),end:Number($('#region-end').value),loop:$('#loop').checked,metronome:$('#metronome').checked,countIn:Number($('#count-in').value),clickVolume:Number($('#click-volume').value)};
+ if(strict&&p.region&&(!Number.isFinite(p.start)||!Number.isFinite(p.end)||p.start<0||p.end>duration()+1e-6||p.end-p.start<.05))throw Error('請設定有效 A–B 區段：B 須晚於 A 至少 0.05 秒，且不可超出作品長度');
+ return practiceSettings(p,duration());
+}
+function applyPractice(p={}){
+ p=practiceSettings(p,duration());
+ $('#region-enabled').checked=p.region;$('#region-start').value=p.start;$('#region-end').value=p.end;
+ $('#loop').checked=p.loop;$('#metronome').checked=p.metronome;$('#count-in').value=String(p.countIn);$('#click-volume').value=String(p.clickVolume);
+}
+function reconcileRegion(){
+ const total=duration();$('#region-start').max=total;$('#region-end').max=total;
+ const start=Number($('#region-start').value),end=Number($('#region-end').value);
+ if(!$('#region-enabled').checked||end<=0||start>=total||end-start<.05){$('#region-start').value=0;$('#region-end').value=total;$('#region-enabled').checked=false}
+ else $('#region-end').value=Math.min(end,total);
+ if(total<.05)$('#region-enabled').checked=false;
+}
+function updateSelectionUI(){
+ selection=new Set([...selection].filter(i=>state.notes[i]));
+ const locked=state.busy||state.loading,all=$('#select-all');
+ all.checked=state.notes.length>0&&selection.size===state.notes.length;all.indeterminate=selection.size>0&&!all.checked;
+ all.disabled=locked||!state.notes.length;
+ $('#selection-count').textContent='已選 '+selection.size+' / '+state.notes.length+' 個';
+ $$('[data-batch],#clear-selection,#region-selection').forEach(e=>e.disabled=locked||!selection.size);
+ $('#select-region').disabled=locked||!state.notes.length;
+}
+function setRegion(start,end){
+ if(end-start<.05||start<0||end>duration()+1e-6)throw Error('區段至少需要 0.05 秒，且不可超出作品');
+ haltPlayback(false);$('#region-start').value=Number(start.toFixed(6));$('#region-end').value=Number(end.toFixed(6));$('#region-enabled').checked=true;
+ renderPiano();saveDraft();toast('A–B 區段已設定；可循環練習或分段匯出');
+}
+function batchEdit(action){
+ if(state.busy||state.loading)return;
+ try{
+  const input=$('#batch-'+action),value=input?Number(input.value):0;
+  if(input&&input.value.trim()==='')throw Error('請先輸入數值');
+  const result=editNotes(state.notes,selection,action,{value,bpm:state.bpm,grid:Number($('#batch-grid').value)});
+  pushUndo();state.notes=result.notes;selection=result.selection;finishEdit(true);toast('已完成批次編輯，可使用復原還原');
+ }catch(e){toast(e.message)}
+}
+function exportData(){
+ if($('#export-scope').value!=='region')return {notes:state.notes,title:state.title,filename:name()};
+ const p=readPractice(true);if(!p.region)throw Error('請先啟用並設定 A–B 區段');
+ const notes=clipNotes(state.notes,p.start,p.end);if(!notes.length)throw Error('A–B 區段內沒有音符');
+ return {notes,title:state.title+' · 片段',filename:name()+'-'+p.start.toFixed(2)+'-'+p.end.toFixed(2)};
+}
 function resetSource(){
  state.cancel=true;state.job++;state.scoreToken++;clearTimeout(renderTimer);clearTimeout(draftTimer);
- sampler.stop();cancelAnalysis?.();worker?.terminate();worker=null;cancelAnalysis=null;analysisKey='';
+ haltPlayback();cancelAnalysis?.();worker?.terminate();worker=null;cancelAnalysis=null;analysisKey='';
  if(state.originalUrl)URL.revokeObjectURL(state.originalUrl);
  Object.assign(state,{originalUrl:null,source:null,raw:[],notes:[],midi:null,originalBuffer:null,title:'Violin arrangement',selected:-1,page:0,notation:null});
  history.clear();$('#file-input').value='';$('#track-select').replaceChildren();
+ selection.clear();$('#region-enabled').checked=false;$('#region-start').value=0;$('#region-end').value=0;$('#loop').checked=false;$('#export-scope').value='all';
  $('#source-info').hidden=true;$('#draft-notice').hidden=true;$('#source-player').hidden=true;$('#track-picker').hidden=true;
  $('#original-audio').removeAttribute('src');$('#original-audio').load();$('#progress-box').hidden=true;
  syncTitle();renderEverything();status('請匯入音樂、載入示範，或建立空白樂譜');
@@ -120,7 +204,7 @@ function setSourceInfo(file,kind,extra=''){
 }
 async function openFile(file){
  if(!file||state.busy||state.loading)return;
- state.loading=true;sampler.stop();available();status('正在讀取 '+file.name+'…');
+ state.loading=true;haltPlayback();available();status('正在讀取 '+file.name+'…');
  try{
   const ext=(file.name.split('.').pop()||'').toLowerCase();
   if(file.size>250*1024*1024)throw Error('檔案超過 250 MB，請先裁切');
@@ -212,12 +296,13 @@ function applyArrangement(){
  if(!notes.length)throw Error('此音域沒有可用音符，請調整音域或移調');
  history.push(snapshot(state));state.notes=Core.validateNotes(notes);state.bpm=opts.bpm;
  state.notation={...opts,grid:0};state.page=0;state.selected=-1;
- sampler.stop();renderEverything();saveDraft();
+ selection.clear();
+ haltPlayback();renderEverything();saveDraft();
  status('已生成 '+state.notes.length+' 個音符 · '+fmt(duration())+' · '+opts.bpm+' BPM','success');
 }
 async function convert(){
  if(state.busy||!state.source)return;
- const job=state.job;state.cancel=false;sampler.stop();busy(true,state.source.kind==='audio');progress('準備轉換',0);
+ const job=state.job;state.cancel=false;haltPlayback();busy(true,state.source.kind==='audio');progress('準備轉換',0);
  try{
   if(state.source.kind==='audio'&&(!state.raw.length||analysisKey!==transcriptionKey())){
    const raw=await transcribe(state.originalBuffer,job);
@@ -235,7 +320,7 @@ function loadDemo(){
  setSourceInfo(state.source.file,'示範旋律','原創練習旋律');applyArrangement();history.clear();available();
 }
 function pushUndo(){history.push(snapshot(state))}
-function finishEdit(){sampler.stop();state.selected=-1;state.notes=Core.normalize(state.notes);renderEverything();saveDraft()}
+function finishEdit(keepSelection=false){haltPlayback();state.selected=-1;if(!keepSelection)selection.clear();state.notes=Core.normalize(state.notes);renderEverything();saveDraft()}
 function updateNote(index,patch){
  if(state.busy||!state.notes[index])return;
  const n={...state.notes[index],...patch};
@@ -250,17 +335,23 @@ function undo(redo=false){
  if(!next)return;Object.assign(state,next);finishEdit();
 }
 function parsePitch(value){const str=String(value).trim();if(/^\d+$/.test(str))return Number(str);const m=/^([A-Ga-g])([#b♯♭]?)(-?\d+)$/.exec(str);if(!m)return NaN;const p={C:0,D:2,E:4,F:5,G:7,A:9,B:11}[m[1].toUpperCase()];return (Number(m[3])+1)*12+p+(m[2]==='#'||m[2]==='♯'?1:m[2]==='b'||m[2]==='♭'?-1:0)}
-function renderEverything(){renderTable();renderPiano();available();scheduleScore();$('#selected-note').textContent='點選時間軸中的音符'}
+function renderEverything(){reconcileRegion();renderTable();renderPiano();available();scheduleScore();$('#selected-note').textContent='點選音符可編輯，Shift 點選可多選'}
 function scheduleRender(){renderEverything()}
 function scheduleScore(){clearTimeout(renderTimer);state.scoreToken++;renderTimer=setTimeout(()=>renderScore().catch(e=>fallbackScore(e.message)),150)}
 async function getScoreLib(){if(window.opensheetmusicdisplay)return window.opensheetmusicdisplay;if(state.scoreLib)return state.scoreLib;state.scoreLib=new Promise((resolve,reject)=>{const script=document.createElement('script');script.src='https://cdn.jsdelivr.net/npm/opensheetmusicdisplay@1.9.9/build/opensheetmusicdisplay.min.js';const timer=setTimeout(()=>reject(Error('樂譜載入逾時，請重試或下載 MusicXML')),45000);script.addEventListener('load',()=>clearTimeout(timer));script.addEventListener('error',()=>clearTimeout(timer));script.onload=()=>window.opensheetmusicdisplay?resolve(window.opensheetmusicdisplay):reject(Error('樂譜函式庫載入失敗'));script.onerror=()=>reject(Error('無法載入樂譜函式庫，仍可下載 MusicXML'));document.head.append(script)});try{return await state.scoreLib}catch(e){state.scoreLib=null;throw e}}
-function scoreXML(){return Core.encodeMusicXML(state.notes,{...(state.notation||getSettings()),bpm:state.bpm,title:state.title,composer:'',grid:0})}
+function scoreXML(notes=state.notes,title=state.title){return Core.encodeMusicXML(notes,{...(state.notation||getSettings()),bpm:state.bpm,title,composer:'',grid:0})}
 async function renderScore(){if(!state.notes.length){$('#score-root').innerHTML='<div class="empty-score"><span>𝄞</span><p>載入音樂或新增音符，開始你的編曲</p></div>';return false}const job=state.job,token=++state.scoreToken,root=$('#score-root');root.innerHTML='<div class="empty-score"><span>𝄞</span><p>正在排版五線譜…</p></div>';const xml=scoreXML();try{const lib=await getScoreLib();if(job!==state.job||token!==state.scoreToken)return;root.replaceChildren();const osmd=new lib.OpenSheetMusicDisplay(root,{autoResize:true,backend:'svg',drawTitle:false,drawComposer:false,drawPartNames:false,drawingParameters:'default',pageFormat:'Endless'});state.score=osmd;await osmd.load(xml);if(job!==state.job||token!==state.scoreToken)return;osmd.render();return true}catch(e){if(token===state.scoreToken)fallbackScore(e.message);return false}}
 function fallbackScore(reason){
  if(!state.notes.length)return;
  $('#score-root').innerHTML='<div class="score-error"><strong>五線譜暫時無法排版</strong><p>'+escapeHtml(reason||'請檢查網路連線')+'</p><p>音符仍保留，可切換時間軸、編輯音符或下載 MusicXML。</p></div>';
 }
-function renderTable(){const rows=state.notes,per=40,pages=Math.max(1,Math.ceil(rows.length/per));state.page=Core.clamp(state.page,0,pages-1);const start=state.page*per;$('#note-table').innerHTML=rows.length?rows.slice(start,start+per).map((n,j)=>{const i=start+j;return `<tr data-index="${i}"><td><input aria-label="音高" data-field="pitch" value="${Core.noteName(n.pitch)}"></td><td><input aria-label="開始時間" type="number" min="0" step=".01" data-field="start" value="${n.start.toFixed(3)}"></td><td><input aria-label="音符長度" type="number" min=".01" step=".01" data-field="duration" value="${n.duration.toFixed(3)}"></td><td><input aria-label="力度" type="number" min="1" max="127" data-field="velocity" value="${Math.round(n.velocity*127)}"></td><td><button class="delete-note" aria-label="刪除音符" data-delete="${i}">×</button></td></tr>`}).join(''):'<tr><td colspan="5" class="empty-row">尚無音符</td></tr>';$('#page-notes').textContent=rows.length?`${state.page+1} / ${pages}`:'—';$('#prev-notes').disabled=state.page===0;$('#next-notes').disabled=state.page>=pages-1;$('#undo-btn').disabled=!history.undo.length;$('#redo-btn').disabled=!history.redo.length}
+function renderTable(){
+ const rows=state.notes,per=40,pages=Math.max(1,Math.ceil(rows.length/per));state.page=Core.clamp(state.page,0,pages-1);const start=state.page*per;
+ $('#note-table').innerHTML=rows.length?rows.slice(start,start+per).map((n,j)=>{const i=start+j;return `<tr data-index="${i}" class="${selection.has(i)?'note-selected':''}"><td class="select-cell"><input type="checkbox" data-select="${i}" aria-label="選取第 ${i+1} 個音符 ${Core.noteName(n.pitch)}" ${selection.has(i)?'checked':''}></td><td><input aria-label="音高" data-field="pitch" value="${Core.noteName(n.pitch)}"></td><td><input aria-label="開始時間" type="number" min="0" step=".01" data-field="start" value="${n.start.toFixed(3)}"></td><td><input aria-label="音符長度" type="number" min=".01" step=".01" data-field="duration" value="${n.duration.toFixed(3)}"></td><td><input aria-label="力度" type="number" min="1" max="127" data-field="velocity" value="${Math.round(n.velocity*127)}"></td><td><button class="delete-note" aria-label="刪除音符" data-delete="${i}">×</button></td></tr>`}).join(''):'<tr><td colspan="6" class="empty-row">尚無音符</td></tr>';
+ $('#page-notes').textContent=rows.length?`${state.page+1} / ${pages}`:'—';$('#prev-notes').disabled=state.page===0;$('#next-notes').disabled=state.page>=pages-1;
+ $('#undo-btn').disabled=state.busy||state.loading||!history.undo.length;$('#redo-btn').disabled=state.busy||state.loading||!history.redo.length;
+ $$('#note-table input,#note-table button').forEach(e=>e.disabled=state.busy||state.loading);updateSelectionUI();
+}
 function renderPiano(){
  const canvas=$('#piano-roll'),notes=state.notes;
  const low=notes.reduce((p,n)=>Math.min(p,n.pitch),55),high=notes.reduce((p,n)=>Math.max(p,n.pitch),88);
@@ -284,7 +375,7 @@ function renderPiano(){
  }
  notes.forEach((n,i)=>{
   const x=left+n.start*px,y=pitchY(n.pitch)+1,nw=Math.max(2,n.duration*px-1);
-  g.fillStyle=i===state.selected?'#89612d':'#456a80';g.fillRect(x,y,nw,row-2);
+  g.fillStyle=selection.has(i)||i===state.selected?'#89612d':'#456a80';g.fillRect(x,y,nw,row-2);
   if(nw>36){g.fillStyle='#fff';g.font='12px sans-serif';g.fillText(Core.noteName(n.pitch),x+3,y+12)}
   rollBoxes.push({x,y,w:nw,h:row-2,index:i});
  });
@@ -292,27 +383,55 @@ function renderPiano(){
  g.fillStyle='#43545f';g.font='12px sans-serif';
  for(let p=low;p<=high;p++)if(p%12===0||p===low||p===high)g.fillText(Core.noteName(p),5,pitchY(p)+12);
  for(let i=0;i*bar<=total;i+=stride)g.fillText((i+1)+' 小節',left+i*bar*px+3,19);
+ const practice=readPractice();if(practice.region){
+  const a=left+practice.start*px,b=left+practice.end*px;g.fillStyle='rgba(175,145,104,.14)';g.fillRect(a,top,b-a,h-top);
+  g.strokeStyle='#805f34';for(const x of [a,b]){g.beginPath();g.moveTo(x,top);g.lineTo(x,h);g.stroke()}
+  g.fillStyle='#684918';g.fillText('A',a+2,29);g.fillText('B',b+2,29);
+ }
  updatePlayhead(sampler.position());
 }
 function updatePlayhead(seconds){
  const p=$('#playhead');if(!p||!rollLayout)return;
  p.hidden=!state.notes.length;p.style.left=(rollLayout.left+seconds*rollLayout.px)+'px';p.style.height=rollLayout.h+'px';
 }
-function selectedNote(index){state.selected=index;renderPiano();const n=state.notes[index];if(!n)return;$('#selected-note').innerHTML=`<b>${Core.noteName(n.pitch)}</b> · ${n.start.toFixed(2)}s · ${n.duration.toFixed(2)}s <button class="text-button" id="edit-selected">編輯此音符 →</button>`;$('#edit-selected').onclick=()=>{state.page=Math.floor(index/40);selectTab('edit');renderTable();$('#note-table tr[data-index="'+index+'"] input')?.focus()}}
+function selectedNote(index,multi=false){
+ if(state.busy||state.loading)return;state.selected=index;
+ if(!multi)selection=new Set([index]);else if(selection.has(index))selection.delete(index);else selection.add(index);
+ renderPiano();renderTable();updateSelectionUI();const n=state.notes[index];if(!n)return;
+ $('#selected-note').innerHTML=`<b>${Core.noteName(n.pitch)}</b> · ${n.start.toFixed(2)}s · ${n.duration.toFixed(2)}s <button class="text-button" id="edit-selected">編輯此音符 →</button>`;
+ $('#edit-selected').onclick=()=>{state.page=Math.floor(index/40);selectTab('edit');renderTable();$('#note-table tr[data-index="'+index+'"] input[data-field]')?.focus()};
+}
 function selectTab(tab){state.tab=tab;$$('[data-tab]').forEach(b=>{const on=b.dataset.tab===tab;b.classList.toggle('active',on);b.setAttribute('aria-selected',String(on));b.tabIndex=on?0:-1});$$('.tab-panel').forEach(e=>e.hidden=e.id!==tab+'-view');if(tab==='piano')renderPiano();if(tab==='score'&&state.notes.length&&!$('#score-root svg'))scheduleScore()}
 async function play(){
- if(state.busy||!state.notes.length)return;
+ if(state.busy||state.loading||state.playPending||!state.notes.length)return;
  if(sampler.playing){sampler.pause();return}
- state.playPending=true;available();
+ const request=++playRequest;state.playPending=true;available();
  try{
   $('#original-audio').pause();
-  const playing=await sampler.play(state.notes,audioSettings());
-  if(playing){$('#play-btn').textContent='Ⅱ';$('#play-btn').setAttribute('aria-label','暫停')}
- }catch(e){status(e.message||'播放失敗','error');toast(e.message)}
- finally{state.playPending=false;available()}
+  const p=readPractice(true),notation=state.notation||getSettings();
+  const playing=await sampler.play(state.notes,{...audioSettings(),...p,bpm:state.bpm,beats:notation.beats,beatType:notation.beatType});
+  if(playing&&request===playRequest){$('#play-btn').textContent='Ⅱ';$('#play-btn').setAttribute('aria-label','暫停')}
+ }catch(e){if(request===playRequest){status(e.message||'播放失敗','error');toast(e.message)}}
+ finally{if(request===playRequest){state.playPending=false;available()}}
 }
-function stop(){resumeAfterSeek=false;state.playPending=false;sampler.stop();available()}
+function haltPlayback(reset=true){++playRequest;state.playPending=false;sampler.stop({reset});available()}
+function stop(){resumeAfterSeek=false;haltPlayback()}
 function setupEvents(){
+ $('#select-all').onchange=e=>{if(state.busy||state.loading)return;selection=e.target.checked?new Set(state.notes.map((_,i)=>i)):new Set();renderTable();renderPiano()};
+ $('#clear-selection').onclick=()=>{selection.clear();state.selected=-1;renderTable();renderPiano()};
+ $('#select-region').onclick=()=>{
+  try{const p=readPractice(true);if(!p.region)throw Error('請先啟用 A–B 區段');selection=new Set(state.notes.flatMap((n,i)=>n.start<p.end&&n.start+n.duration>p.start?[i]:[]));renderTable();renderPiano()}
+  catch(e){toast(e.message)}
+ };
+ $$('[data-batch]').forEach(b=>b.onclick=()=>batchEdit(b.dataset.batch));
+ $('#region-selection').onclick=()=>{try{const r=selectionRange(state.notes,selection);setRegion(r.start,r.end)}catch(e){toast(e.message)}};
+ $('#mark-a').onclick=()=>{try{setRegion(sampler.position(),Number($('#region-end').value)||duration())}catch(e){toast(e.message)}};
+ $('#mark-b').onclick=()=>{try{setRegion(Number($('#region-start').value),sampler.position())}catch(e){toast(e.message)}};
+ $('#region-reset').onclick=()=>{haltPlayback(false);$('#region-enabled').checked=false;$('#region-start').value=0;$('#region-end').value=duration();renderPiano();saveDraft()};
+ for(const id of ['region-enabled','region-start','region-end','metronome','count-in','click-volume'])$('#'+id).addEventListener('change',()=>{
+  haltPlayback(false);try{readPractice(true);renderPiano();saveDraft()}catch(e){status(e.message,'error')}
+ });
+ $('#loop').onchange=saveDraft;$('#volume').addEventListener('change',saveDraft);
  $('#file-input').addEventListener('change',e=>openFile(e.target.files[0]));
  $('#clear-btn').onclick=()=>{resetSource();try{localStorage.removeItem(DRAFT_KEY);$('#save-state').textContent='草稿已清除'}catch{}};
  $('#demo-btn').onclick=loadDemo;$('#convert-btn').onclick=convert;
@@ -329,16 +448,16 @@ function setupEvents(){
  for(const id of ['transpose','strength','threshold','vibrato','reverb','volume'])$('#'+id).oninput=()=>{syncRangeLabels();if(id==='volume'&&sampler.master)sampler.master.gain.value=Number($('#volume').value)/100*.82};
  for(const id of controlIds.concat('octaves'))$('#'+id).addEventListener('change',()=>{saveDraft();if(state.notes.length)status('設定已變更，按「套用設定並重新編曲」更新作品；辨識區段與門檻需按「開始轉換」')});
  $('#play-btn').onclick=play;$('#stop-btn').onclick=stop;
- sampler.onStop=()=>{$('#play-btn').textContent='▶';$('#play-btn').setAttribute('aria-label','播放')};
- sampler.onTime=(p,d)=>{$('#clock').textContent=fmt(p)+' / '+fmt(d);$('#seek').value=d?Math.round(p/d*1000):0;updatePlayhead(p)};
+ sampler.onStop=()=>{$('#play-btn').textContent='▶';$('#play-btn').setAttribute('aria-label','播放');$('#practice-status').textContent='節拍依已生成樂譜的速度與拍號；6/8 每小節六拍。'};
+ sampler.onTime=(p,d,count=0)=>{$('#clock').textContent=fmt(p)+' / '+fmt(d);$('#seek').value=d?Math.round(p/d*1000):0;updatePlayhead(p);const label=count?'預備拍 · '+count:'節拍依已生成樂譜的速度與拍號；6/8 每小節六拍。';if($('#practice-status').textContent!==label)$('#practice-status').textContent=label};
  sampler.onEnd=()=>{if($('#loop').checked&&!state.busy)play()};
  $('#original-audio').onplay=stop;
  const seek=$('#seek');
- seek.oninput=e=>{const target=duration()*Number(e.target.value)/1000;resumeAfterSeek=resumeAfterSeek||sampler.playing;sampler.seek(target)};
+ seek.oninput=e=>{const target=duration()*Number(e.target.value)/1000;resumeAfterSeek=resumeAfterSeek||sampler.playing;++playRequest;state.playPending=false;sampler.seek(target);available()};
  seek.onchange=()=>{if(resumeAfterSeek){resumeAfterSeek=false;play()}};
  seek.onpointercancel=()=>{resumeAfterSeek=false};
  for(const id of ['instrument','speed','vibrato','reverb'])$('#'+id).onchange=()=>{
-  const was=sampler.playing;sampler.pause();if(was)play();saveDraft();
+  const was=sampler.playing;haltPlayback(false);if(was)play();saveDraft();
  };
  $$('[data-tab]').forEach((b,i,buttons)=>{
   b.onclick=()=>selectTab(b.dataset.tab);
@@ -352,9 +471,11 @@ function setupEvents(){
  $('#piano-roll').onclick=e=>{
   if(!rollLayout)return;const rect=e.currentTarget.getBoundingClientRect();
   const x=(e.clientX-rect.left)*rollLayout.w/rect.width,y=(e.clientY-rect.top)*rollLayout.h/rect.height;
-  const hit=rollBoxes.findLast(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);if(hit)selectedNote(hit.index);
+  const hit=rollBoxes.findLast(b=>x>=b.x&&x<=b.x+b.w&&y>=b.y&&y<=b.y+b.h);if(hit)selectedNote(hit.index,e.shiftKey);
  };
  $('#note-table').addEventListener('change',e=>{
+  if(state.busy||state.loading)return;
+  if(e.target.dataset.select!==undefined){const i=Number(e.target.dataset.select);if(e.target.checked)selection.add(i);else selection.delete(i);e.target.closest('tr').classList.toggle('note-selected',e.target.checked);updateSelectionUI();renderPiano();return}
   const field=e.target.dataset.field;if(!field)return;
   const index=Number(e.target.closest('tr').dataset.index),text=e.target.value.trim();
   const v=field==='pitch'?parsePitch(text):text===''?NaN:Number(text);
@@ -369,8 +490,9 @@ function setupEvents(){
  };
  $('#undo-btn').onclick=()=>undo();$('#redo-btn').onclick=()=>undo(true);
  $('#prev-notes').onclick=()=>{state.page--;renderTable()};$('#next-notes').onclick=()=>{state.page++;renderTable()};
- $('#export-midi').onclick=()=>{try{saveBlob(Core.encodeMidi(state.notes,{bpm:state.bpm,title:state.title,program:{violin:40,viola:41,cello:42,string_ensemble_1:48}[$('#instrument').value]}),name()+'.mid','audio/midi');toast('MIDI 已輸出')}catch(e){toast(e.message)}};
- $('#export-xml').onclick=()=>{try{saveBlob(scoreXML(),name()+'.musicxml','application/vnd.recordare.musicxml+xml');toast('MusicXML 已輸出')}catch(e){toast(e.message)}};
+ $('#export-midi').onclick=()=>{try{const d=exportData();saveBlob(Core.encodeMidi(d.notes,{bpm:state.bpm,title:d.title,program:{violin:40,viola:41,cello:42,string_ensemble_1:48}[$('#instrument').value]}),d.filename+'.mid','audio/midi');toast('MIDI 已輸出')}catch(e){toast(e.message)}};
+ $('#export-xml').onclick=()=>{try{const d=exportData();saveBlob(scoreXML(d.notes,d.title),d.filename+'.musicxml','application/vnd.recordare.musicxml+xml');toast('MusicXML 已輸出')}catch(e){toast(e.message)}};
+ $('#export-csv').onclick=()=>{try{const d=exportData();saveBlob(notesCSV(d.notes),d.filename+'.csv','text/csv;charset=utf-8');toast('CSV 音符清單已輸出')}catch(e){toast(e.message)}};
  $('#export-project').onclick=()=>{saveBlob(JSON.stringify(projectData(),null,2),name()+'.violin.json','application/json');toast('專案已備份；原始音訊不包含在內')};
  $('#export-pdf').onclick=async()=>{
   busy(true);try{selectTab('score');clearTimeout(renderTimer);const ready=await renderScore();if(ready)window.print();else toast('正式樂譜尚未排版完成，請重試或下載 MusicXML')}
@@ -378,13 +500,16 @@ function setupEvents(){
  };
  $('#export-audio').onclick=async()=>{
   if(state.busy)return;stop();busy(true);progress('合成演奏音檔',10,'將套用目前音色、速度、音量、揉弦與殘響');
-  try{const data=await sampler.render(state.notes,audioSettings(),s=>progress('合成演奏音檔',60,s));saveBlob(data,name()+'.wav','audio/wav');toast('WAV 已輸出')}
+  try{const d=exportData();const data=await sampler.render(d.notes,audioSettings(),s=>progress('合成演奏音檔',60,s));saveBlob(data,d.filename+'.wav','audio/wav');toast('WAV 已輸出')}
   catch(e){status(e.message||'輸出失敗','error')}finally{busy(false);$('#progress-box').hidden=true}
  };
  window.addEventListener('keydown',e=>{
   const typing=e.target.matches('input,select,textarea,[contenteditable]');if(typing)return;
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){e.preventDefault();undo(e.shiftKey)}
   if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='y'){e.preventDefault();undo(true)}
+  if(e.code==='Space'&&!e.target.closest('button,a,summary')&&!e.ctrlKey&&!e.metaKey){e.preventDefault();play()}
+  if(e.key==='Escape'){stop();selection.clear();renderTable();renderPiano()}
+  if(e.key==='Delete'&&state.tab==='edit'&&selection.size){e.preventDefault();batchEdit('delete')}
  });
  window.addEventListener('beforeunload',()=>{flushDraft();sampler.stop();worker?.terminate();if(state.originalUrl)URL.revokeObjectURL(state.originalUrl)});
  window.addEventListener('resize',()=>{if(state.originalBuffer)drawWaveform(state.originalBuffer);if(state.tab==='piano')renderPiano()});

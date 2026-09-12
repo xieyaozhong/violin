@@ -22,7 +22,21 @@ GitHub Pages 設定：main 分支、根目錄 `/`。若尚未啟用 Pages，需�
 - `styles.css`：響應式版面與配色
 - `index.html`：語意化頁面結構
 
-## 轉換器 2.0
+## 轉換器 2.1
+
+### 新增：分段練習與批次修譜
+
+- **A–B 練習區段**：輸入起訖秒數、將目前播放位置設為 A/B，或以已選音符設定區段。可單次播放或循環；秒數以作品原速為基準，不受試聽倍率影響。
+- **節拍器與預備拍**：跟隨已生成樂譜的 BPM、拍號與試聽速度；提供 1／2 小節预備拍、節拍音量。6/8 每小節六個八分音符拍，第一拍加重；不使用附點四分音符的兩大拍模式。每次開始播放（含循環）重新預備拍；循環不是無縫拼接。
+- **音符多選**：表格逐一勾選、全曲全選、選取 A–B 內音符，或在時間軸以 Shift 點選。跨頁保留選取；與區段相交的延音也會選入。
+- **批次修譜**：已選音符可移調、按四分音符拍數前後移動、統一力度、量化、複製接續及刪除。會先驗證整批操作，超出音域／時間／數量限制時不改動作品；所有批次操作都可復原。複製以已選片段「最早開始到最晚結束」的跨度接續，會保留中間的休止。
+- **分段匯出**：WAV、MIDI、MusicXML 與 CSV 可只匯出 A–B 範圍，跨邊界音符正確裁切並從 0 秒開始。區段尾端無音符的空白不另填補；WAV 仍保留效果尾音。不匯出節拍器與預備拍；PDF 及 JSON 備份仍保留整首作品。
+- **CSV 音符清單**：包含 MIDI 音高、音名、開始秒數、音長及力度，使用 UTF-8 BOM，方便試算表讀取。
+- **練習設定保存**：A–B、循環、節拍器與預備拍會寫入本機草稿和 JSON 備份；舊版專案可繼續載入。編輯導致作品變短時會限制區段，無效範圍回到整首。
+- **播放效能**：即時播放每 50 ms 更新接下來約 1.2 秒的排程，音符結束後釋放音訊節點，不在起播時建立整首長曲的所有音訊節點。背景分頁、系統省電或休眠仍可能延遲排程；精準練習請保持分頁在前景。
+- **快捷鍵**：非輸入欄位中，空白鍵播放／暫停、Esc 停止並取消選取；編輯分頁可用 Delete 刪除已選音符。原有復原／重做快捷鍵繼續適用。
+
+### 原有功能
 
 - 音訊、格式 0/1 MIDI、partwise/timewise MusicXML、MXL、弦之境 JSON 專案匯入。失敗時保留現有作品；鼓軌不轉為小提琴旋律。
 - 選擇音訊分析起點和長度，於 Worker 內進行 Basic Pitch 辨識。停止分析會終止 Worker；完成後也會釋放模型。
@@ -39,7 +53,9 @@ GitHub Pages 設定：main 分支、根目錄 `/`。若尚未啟用 Pages，需�
 
 開發測試：`npm ci` 後執行 `npm test`。測試包含 MIDI/XML 往返、多軌、變速、播放取消、草稿與操作流程；DOM 與 Web Audio 使用測試替身，並非真實瀏覽器或實際聆聽測試。
 
-發布：`npm run build` 將可發布檔案複製到 dist。GitHub Pages 可使用 dist 中的靜態檔案，或保持原有 main 分支根目錄發布方式（需包括 project.js、transcribe-worker.js）。
+發布：`npm run build` 將可發布檔案複製到 dist。GitHub Pages 可使用 dist 中的靜態檔案，或保持原有 main 分支根目錄發布方式（需包括 project.js、editing.js、transcribe-worker.js）。
+
+新增測試涵蓋批次編輯的原子性／選取重排、區段邊界、草稿相容性、CSV、多頁選取、片段匯出、預備拍與節拍速度、長曲漸進排程及舊播放請求取消。Web Audio 時間與節點生命週期依 [start()](https://developer.mozilla.org/en-US/docs/Web/API/AudioScheduledSourceNode/start)、[ended](https://developer.mozilla.org/en-US/docs/Web/API/AudioScheduledSourceNode/ended_event) 與 [currentTime](https://developer.mozilla.org/en-US/docs/Web/API/BaseAudioContext/currentTime) 文件實作。
 
 ### 範圍與限制
 

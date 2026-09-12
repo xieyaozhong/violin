@@ -1,4 +1,5 @@
-import {validateNotes,clamp} from './core.js';
+import {validateNotes,clamp,endTime} from './core.js';
+import {practiceSettings} from './editing.js';
 export const PROJECT_FORMAT='violin-atlas-project';
 export function parseProject(input){
  const d=typeof input==='string'?JSON.parse(input):input;
@@ -12,7 +13,7 @@ export function parseProject(input){
  if(legacy)Object.assign(controls,{transpose:0,mode:'all',quantize:0,octaves:false});
  const bpm=clamp(Number(d.bpm??controls.bpm)||120,20,300);
  return {version:2,format:PROJECT_FORMAT,notes,raw,bpm,title:String(d.title||'Violin arrangement').slice(0,100),
-  sourceName:String(d.sourceName||'專案').slice(0,250),controls,audio:d.audio||{},notation:d.notation||null,savedAt:Number(d.savedAt)||Date.now()};
+  sourceName:String(d.sourceName||'專案').slice(0,250),controls,audio:d.audio||{},practice:practiceSettings(d.practice||{},endTime(notes)),notation:d.notation||null,savedAt:Number(d.savedAt)||Date.now()};
 }
 export function snapshot(state){
  return structuredClone({notes:state.notes,bpm:state.bpm,notation:state.notation});
